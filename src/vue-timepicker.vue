@@ -10,142 +10,101 @@ export default {
   name: 'VueTimepicker',
 
   props: {
-    value: {
-      type: Object
+    value: {type: Object},
+    hideClearButton: {type: Boolean},
+    format: {type: String},
+    minuteInterval: {type: Number},
+    secondInterval: {type: Number},
+    id: {type: String},
+    hourmin: {
+      default: 0,
+      type: Number
     },
-
-    hideClearButton: {
-      type: Boolean
+    hourmax: {type: Number},
+    minutesmin: {
+      default: 0,
+      type: Number
     },
-
-    format: {
+    minutesmax: {type: Number},
+    inputClass: {
       type: String,
-      default: 'HH:mm'
+      default: ''
     },
-
-    minuteInterval: {
-      type: Number,
-      default: 1
-    },
-
-    secondInterval: {
-      type: Number,
-      default: 1
-    },
-
-    disabled: { type: Boolean },
-
-    disabledValues: {
-      type: Object,
-      default: () => { return { hour: [], minute: [], second: [], apm: [] } }
+    placeholder: {
+      type: String
     }
   },
 
   data () {
     return {
+      hours: [],
+      minutes: [],
+      seconds: [],
+      apms: [],
       showDropdown: false,
       muteWatch: false,
-      apm: ''
+      hourType: 'HH',
+      minuteType: 'mm',
+      secondType: '',
+      apmType: '',
+      hour: '',
+      minute: '',
+      second: '',
+      apm: '',
+      fullValues: undefined
     }
   },
 
   computed: {
     displayTime () {
-      let formatString = this.format
-
-      if (this.value[this.hourType]) {
-        formatString = formatString.replace(new RegExp(this.hourType, 'g'), this.originalHour)
+      let formatString = String((this.format || 'test'))
+      if (this.hour) {
+        formatString = formatString.replace(new RegExp(this.hourType, 'g'), this.hour)
       }
-      if (this.value[this.minuteType]) {
-        formatString = formatString.replace(new RegExp(this.minuteType, 'g'), this.value[this.minuteType])
+      if (this.minute) {
+        formatString = formatString.replace(new RegExp(this.minuteType, 'g'), this.minute)
       }
-      if (this.value[this.secondType] && this.secondType) {
+      if (this.second && this.secondType) {
         formatString = formatString.replace(new RegExp(this.secondType, 'g'), this.second)
       }
       if (this.apm && this.apmType) {
         formatString = formatString.replace(new RegExp(this.apmType, 'g'), this.apm)
       }
-
+      if (formatString === this.format && this.placeholder) {
+        return this.placeholder
+      }
       return formatString
     },
-
     showClearBtn () {
-      return !!this.value[this.hourType] || !!this.value[this.minuteType]
-    },
-
-    hourType () {
-      return this.checkAcceptingType(CONFIG.HOUR_TOKENS, this.format, 'HH')
-    },
-
-    minuteType () {
-      return this.checkAcceptingType(CONFIG.MINUTE_TOKENS, this.format, 'mm')
-    },
-
-    secondType () {
-      return this.checkAcceptingType(CONFIG.SECOND_TOKENS, this.format)
-    },
-
-    apmType () {
-      return this.checkAcceptingType(CONFIG.APM_TOKENS, this.format)
-    },
-
-    hours () {
-      const hoursCount = (this.hourType === 'h' || this.hourType === 'hh') ? 12 : 24
-      let hours = []
-
-      for (let i = 0; i < hoursCount; i++) {
-        hours.push(this.formatValue(this.hourType, i))
+      if ((this.hour && this.hour !== '') || (this.minute && this.minute !== '')) {
+        return true
       }
-
-      return hours
-    },
-
-    minutes () {
-      let minutes = []
-
-      for (let i = 0; i < 60; i += this.minuteInterval) {
-        minutes.push(this.formatValue(this.minuteType, i))
-      }
-
-      return minutes
-    },
-
-    seconds () {
-      let seconds = []
-
-      for (let i = 0; i < 60; i += this.secondInterval) {
-        seconds.push(this.formatValue(this.secondType, i))
-      }
-
-      return seconds
-    },
-
-    apms () {
-      switch (this.apmType) {
-        case 'A':
-          return ['AM', 'PM']
-        case 'a':
-          return ['am', 'pm']
-        default:
-          return []
-      }
-    },
-
-    isTwelveHours () {
-      return this.hourType === 'h' || this.hourType === 'hh'
-    },
-
-    isPastNoon () {
-      return this.apm === 'pm' || this.apm === 'PM'
-    },
-
-    originalHour () {
-      let hour = this.value[this.hourType] % 12
-
-      return hour === 0
-        ? '12'
-        : (hour < 10 ? '0' : '') + hour
+      return false
     }
+  },
+
+  watch: {
+    'format': 'renderFormat',
+    minuteInterval (newInteval) {
+      this.renderList('minute', newInteval)
+    },
+    minutesmin (newInteval) {
+      this.renderList('minute', newInteval)
+    },
+    minutesmax (newInteval) {
+      this.renderList('minute', newInteval)
+    },
+    hourmin (newInteval) {
+      this.renderHoursList()
+    },
+    hourmax (newInteval) {
+      this.renderHoursList()
+    },
+    secondInterval (newInteval) {
+      this.renderList('second', newInteval)
+    },
+    'value': 'readValues',
+    'displayTime': 'fillValues'
   },
 
   methods: {
@@ -172,132 +131,307 @@ export default {
 
     checkAcceptingType (validValues, formatString, fallbackValue) {
       if (!validValues || !formatString || !formatString.length) { return '' }
-
-      const length = validValues.length
-
-      for (let i = 0; i < length; i++) {
+      for (let i = 0; i < validValues.length; i++) {
         if (formatString.indexOf(validValues[i]) > -1) {
           return validValues[i]
         }
       }
-
       return fallbackValue || ''
     },
 
+    renderFormat (newFormat) {
+      newFormat = newFormat || this.format
+      if (!newFormat || !newFormat.length) {
+        newFormat = 'HH:mm'
+      }
+
+      this.hourType = this.checkAcceptingType(CONFIG.HOUR_TOKENS, newFormat, 'HH')
+      this.minuteType = this.checkAcceptingType(CONFIG.MINUTE_TOKENS, newFormat, 'mm')
+      this.secondType = this.checkAcceptingType(CONFIG.SECOND_TOKENS, newFormat)
+      this.apmType = this.checkAcceptingType(CONFIG.APM_TOKENS, newFormat)
+
+      this.renderHoursList()
+      this.renderList('minute')
+
+      if (this.secondType) {
+        this.renderList('second')
+      }
+
+      if (this.apmType) {
+        this.renderApmList()
+      }
+
+      const self = this
+      this.$nextTick(() => {
+        self.readValues()
+      })
+    },
+
+    renderHoursList () {
+      const hoursCount = this.hourmax ? this.hourmax : (this.hourType === 'h' || this.hourType === 'hh') ? 12 : 24
+      this.hours = []
+      for (let i = this.hourmin; i < hoursCount; i++) {
+        this.hours.push(this.formatValue(this.hourType, i))
+      }
+    },
+
+    renderList (listType, interval) {
+      if (listType === 'second') {
+        interval = interval || this.secondInterval
+      } else if (listType === 'minute') {
+        interval = interval || this.minuteInterval
+      } else {
+        return
+      }
+
+      if (interval === 0) {
+        interval = 60
+      } else if (interval > 60) {
+        window.console.warn('`' + listType + '-interval` should be less than 60. Current value is', interval)
+        interval = 1
+      } else if (interval < 1) {
+        window.console.warn('`' + listType + '-interval` should be NO less than 1. Current value is', interval)
+        interval = 1
+      } else if (!interval) {
+        interval = 1
+      }
+
+      if (listType === 'minute') {
+        this.minutes = []
+      } else {
+        this.seconds = []
+      }
+      let countMax = 60
+      let countMin = 0
+
+      if (listType === 'minute') {
+        countMax = this.minutesmax ? this.minutesmax : countMax
+        countMin = this.minutesmin ? this.minutesmin : countMin
+      }
+
+      for (let i = countMin; i < countMax; i += interval) {
+        if (listType === 'minute') {
+          this.minutes.push(this.formatValue(this.minuteType, i))
+        } else {
+          this.seconds.push(this.formatValue(this.secondType, i))
+        }
+      }
+    },
+
+    renderApmList () {
+      this.apms = []
+      if (!this.apmType) { return }
+      this.apms = this.apmType === 'A' ? ['AM', 'PM'] : ['am', 'pm']
+    },
+
+    readValues () {
+      if (!this.value || this.muteWatch) { return }
+
+      const timeValue = JSON.parse(JSON.stringify(this.value || {}))
+
+      const values = Object.keys(timeValue)
+      if (values.length === 0) { return }
+
+      if (values.indexOf(this.hourType) > -1) {
+        this.hour = timeValue[this.hourType]
+      }
+
+      if (values.indexOf(this.minuteType) > -1) {
+        this.minute = timeValue[this.minuteType]
+      }
+
+      if (values.indexOf(this.secondType) > -1) {
+        this.second = timeValue[this.secondType]
+      } else {
+        this.second = 0
+      }
+
+      if (values.indexOf(this.apmType) > -1) {
+        this.apm = timeValue[this.apmType]
+      }
+
+      this.fillValues()
+    },
+
+    fillValues () {
+      let fullValues = {}
+
+      const baseHour = this.hour
+      const baseHourType = this.hourType
+
+      const hourValue = baseHour || baseHour === 0 ? Number(baseHour) : ''
+      const baseOnTwelveHours = this.isTwelveHours(baseHourType)
+      const apmValue = (baseOnTwelveHours && this.apm) ? String(this.apm).toLowerCase() : false
+
+      CONFIG.HOUR_TOKENS.forEach((token) => {
+        if (token === baseHourType) {
+          fullValues[token] = baseHour
+          return
+        }
+
+        let value
+        let apm
+        switch (token) {
+          case 'H':
+          case 'HH':
+            if (!String(hourValue).length) {
+              fullValues[token] = ''
+              return
+            } else if (baseOnTwelveHours) {
+              if (apmValue === 'pm') {
+                value = hourValue < 12 ? hourValue + 12 : hourValue
+              } else {
+                value = hourValue % 12
+              }
+            } else {
+              value = hourValue % 24
+            }
+            fullValues[token] = (token === 'HH' && value < 10) ? `0${value}` : String(value)
+            break
+          case 'k':
+          case 'kk':
+            if (!String(hourValue).length) {
+              fullValues[token] = ''
+              return
+            } else if (baseOnTwelveHours) {
+              if (apmValue === 'pm') {
+                value = hourValue < 12 ? hourValue + 12 : hourValue
+              } else {
+                value = hourValue === 12 ? 24 : hourValue
+              }
+            } else {
+              value = hourValue === 0 ? 24 : hourValue
+            }
+            fullValues[token] = (token === 'kk' && value < 10) ? `0${value}` : String(value)
+            break
+          case 'h':
+          case 'hh':
+            if (apmValue) {
+              value = hourValue
+              apm = apmValue || 'am'
+            } else {
+              if (!String(hourValue).length) {
+                fullValues[token] = ''
+                fullValues.a = ''
+                fullValues.A = ''
+                return
+              } else if (hourValue > 11) {
+                apm = 'pm'
+                value = hourValue === 12 ? 12 : hourValue % 12
+              } else {
+                if (baseOnTwelveHours) {
+                  apm = ''
+                } else {
+                  apm = 'am'
+                }
+                value = hourValue % 12 === 0 ? 12 : hourValue
+              }
+            }
+            fullValues[token] = (token === 'hh' && value < 10) ? `0${value}` : String(value)
+            fullValues.a = apm
+            fullValues.A = apm.toUpperCase()
+            break
+        }
+      })
+
+      if (this.minute || this.minute === 0) {
+        const minuteValue = Number(this.minute)
+        fullValues.m = String(minuteValue)
+        fullValues.mm = minuteValue < 10 ? `0${minuteValue}` : String(minuteValue)
+      } else {
+        fullValues.m = ''
+        fullValues.mm = ''
+      }
+
+      if (this.second || this.second === 0) {
+        const secondValue = Number(this.second)
+        fullValues.s = String(secondValue)
+        fullValues.ss = secondValue < 10 ? `0${secondValue}` : String(secondValue)
+      } else {
+        fullValues.s = ''
+        fullValues.ss = ''
+      }
+
+      this.fullValues = fullValues
+      this.updateTimeValue(fullValues)
+      this.$emit('change', {data: fullValues})
+    },
+
+    updateTimeValue (fullValues) {
+      this.muteWatch = true
+
+      const self = this
+
+      const baseTimeValue = JSON.parse(JSON.stringify(this.value || {}))
+      let timeValue = {}
+
+      Object.keys(baseTimeValue).forEach((key) => {
+        timeValue[key] = fullValues[key]
+      })
+
+      this.$emit('input', timeValue)
+
+      this.$nextTick(() => {
+        self.muteWatch = false
+      })
+    },
+
+    isTwelveHours (token) {
+      return token === 'h' || token === 'hh'
+    },
+
     toggleDropdown () {
-      this.showDropdown = !this.showDropdown && !this.disabled
+      this.showDropdown = !this.showDropdown
     },
 
-    computeHour (value) {
-      value = parseInt(value)
-
-      value = (this.isTwelveHours && this.isPastNoon)
-        ? value > 12 // PM
-          ? value !== 24 // 12:00PM will become 24. Set it to noon instead.
-            ? value
-            : 12
-          : value + 12
-        : value <= 12
-          ? value !== 12 // There's no 12:00AM. Set it to 00:00 instead.
-            ? value
-            : 0
-          : value - 12
-
-      return (value < 10 ? '0' : '') + value
-    },
-
-    onHourSelect (value) {
-      const newValue = this.value
-      newValue[this.hourType] = this.computeHour(value)
-
-      this.$emit('input', newValue)
-    },
-
-    onMinuteSelect (value) {
-      const newValue = this.value
-      newValue[this.minuteType] = value
-
-      this.$emit('input', newValue)
-    },
-
-    onSecondSelect (value) {
-      const newValue = this.value
-      newValue[this.secondType] = value
-
-      this.$emit('input', newValue)
-    },
-
-    onApmSelect (value) {
-      this.apm = value
-
-      if (parseFloat(this.value[this.hourType]) && isFinite(this.value[this.hourType])) {
-        const newValue = this.value
-        newValue[this.hourType] = this.computeHour(this.value[this.hourType])
-
-        this.$emit('input', newValue)
+    select (type, value) {
+      if (type === 'hour') {
+        this.hour = value
+      } else if (type === 'minute') {
+        this.minute = value
+      } else if (type === 'second') {
+        this.second = value
+      } else if (type === 'apm') {
+        this.apm = value
       }
     },
 
     clearTime () {
-      let time = {}
-
-      time[this.hourType] = ''
-      time[this.minuteType] = ''
-      time[this.secondType] = ''
-
-      this.apm = this.apms[0]
-      this.$emit('input', time)
+      this.hour = ''
+      this.minute = ''
+      this.second = ''
+      this.apm = ''
     }
   },
 
   mounted () {
-    this.apm = this.apms[0]
+    this.renderFormat()
   }
 }
 </script>
 
 <template>
 <span class="time-picker">
-  <input class="display-time" :readonly="!disabled" :disabled="disabled" :value="displayTime" @click.stop="toggleDropdown" type="text" />
+  <input :class="'display-time ' + inputClass" :id="id" v-model="displayTime" @click.stop="toggleDropdown" type="text" readonly />
   <span class="clear-btn" v-if="!hideClearButton" v-show="!showDropdown && showClearBtn" @click.stop="clearTime">&times;</span>
   <div class="time-picker-overlay" v-if="showDropdown" @click.stop="toggleDropdown"></div>
   <div class="dropdown" v-show="showDropdown">
     <div class="select-list">
       <ul class="hours">
         <li class="hint" v-text="hourType"></li>
-        <li
-          v-for="hr in hours"
-          v-text="hr"
-          v-show="disabledValues.hour.indexOf(hr) === -1"
-          :class="{active: originalHour === hr}"
-          @click.stop="onHourSelect(hr)"></li>
+        <li v-for="hr in hours" v-text="hr" :class="{active: hour === hr}" @click.stop="select('hour', hr)"></li>
       </ul>
       <ul class="minutes">
         <li class="hint" v-text="minuteType"></li>
-        <li
-          v-for="m in minutes"
-          v-text="m"
-          v-show="disabledValues.minute.indexOf(m) === -1"
-          :class="{active: value[minuteType] === m}"
-          @click.stop="onMinuteSelect(m)"></li>
+        <li v-for="m in minutes" v-text="m" :class="{active: minute === m}" @click.stop="select('minute', m)"></li>
       </ul>
       <ul class="seconds" v-if="secondType">
         <li class="hint" v-text="secondType"></li>
-        <li
-          v-for="s in seconds"
-          v-text="s"
-          v-show="disabledValues.second.indexOf(s) === -1"
-          :class="{active: value[secondType] === s}"
-          @click.stop="onSecondSelect(s)"></li>
+        <li v-for="s in seconds" v-text="s" :class="{active: second === s}" @click.stop="select('second', s)"></li>
       </ul>
       <ul class="apms" v-if="apmType">
         <li class="hint" v-text="apmType"></li>
-        <li
-          v-for="a in apms"
-          v-text="a"
-          v-show="disabledValues.apm.indexOf(a) === -1"
-          :class="{active: apm === a}"
-          @click.stop="onApmSelect(a)"></li>
+        <li v-for="a in apms" v-text="a" :class="{active: apm === a}" @click.stop="select('apm', a)"></li>
       </ul>
     </div>
   </div>
