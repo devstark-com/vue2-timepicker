@@ -2,21 +2,12 @@
   display: inline-block;
   position: relative;
   font-size: 1em;
-  width: 10em;
   font-family: sans-serif;
   vertical-align: middle;
 }
 
 .time-picker * {
   box-sizing: border-box;
-}
-
-.time-picker input.display-time {
-  border: 1px solid #d2d2d2;
-  width: 10em;
-  height: 2.2em;
-  padding: 0.3em 0.5em;
-  font-size: 1em;
 }
 
 .time-picker .clear-btn {
