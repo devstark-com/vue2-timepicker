@@ -32,6 +32,11 @@ export default {
     },
     placeholder: {
       type: String
+    },
+    disabled: { type: Boolean },
+    disabledValues: {
+      type: Object,
+      default: () => { return { hour: [], minute: [], second: [], apm: [] } }
     }
   },
 
@@ -381,7 +386,12 @@ export default {
     },
 
     toggleDropdown () {
-      this.showDropdown = !this.showDropdown
+      this.showDropdown = !this.showDropdown && !this.disabled
+      if (!this.showDropdown) {
+        this.$emit('blur', {
+          ...this.value
+        })
+      }
     },
 
     select (type, value) {
@@ -412,26 +422,46 @@ export default {
 
 <template>
 <span class="time-picker">
-  <input :class="'display-time ' + inputClass" :id="id" v-model="displayTime" @click.stop="toggleDropdown" type="text" readonly />
+  <input :class="'display-time ' + inputClass" :id="id" v-model="displayTime" @click.stop="toggleDropdown" type="text" :readonly="!disabled" :disabled="disabled" />
   <span class="clear-btn" v-if="!hideClearButton" v-show="!showDropdown && showClearBtn" @click.stop="clearTime">&times;</span>
   <div class="time-picker-overlay" v-if="showDropdown" @click.stop="toggleDropdown"></div>
   <div class="dropdown" v-show="showDropdown">
     <div class="select-list">
       <ul class="hours">
         <li class="hint" v-text="hourType"></li>
-        <li v-for="hr in hours" v-text="hr" :class="{active: hour === hr}" @click.stop="select('hour', hr)"></li>
+        <li
+          v-for="hr in hours"
+          v-text="hr"
+          v-show="disabledValues.hour.indexOf(hr) === -1"
+          :class="{active: hour === hr}"
+          @click.stop="select('hour', hr)"></li>
       </ul>
       <ul class="minutes">
         <li class="hint" v-text="minuteType"></li>
-        <li v-for="m in minutes" v-text="m" :class="{active: minute === m}" @click.stop="select('minute', m)"></li>
+        <li
+          v-for="m in minutes"
+          v-text="m"
+          v-show="disabledValues.minute.indexOf(m) === -1"
+          :class="{active: minute === m}"
+          @click.stop="select('minute', m)"></li>
       </ul>
       <ul class="seconds" v-if="secondType">
         <li class="hint" v-text="secondType"></li>
-        <li v-for="s in seconds" v-text="s" :class="{active: second === s}" @click.stop="select('second', s)"></li>
+        <li
+          v-for="s in seconds"
+          v-text="s"
+          v-show="disabledValues.second.indexOf(s) === -1"
+          :class="{active: second === s}"
+          @click.stop="select('second', s)"></li>
       </ul>
       <ul class="apms" v-if="apmType">
         <li class="hint" v-text="apmType"></li>
-        <li v-for="a in apms" v-text="a" :class="{active: apm === a}" @click.stop="select('apm', a)"></li>
+        <li
+          v-for="a in apms"
+          v-text="a"
+          v-show="disabledValues.apm.indexOf(a) === -1"
+          :class="{active: apm === a}"
+          @click.stop="select('apm', a)"></li>
       </ul>
     </div>
   </div>

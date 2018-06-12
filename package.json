@@ -23,7 +23,8 @@
     "UI"
   ],
   "dependencies": {
-    "vue": "^2.0.1"
+    "vue": "^2.0.1",
+    "vue-eslint-parser": "^2.0.3"
   },
   "devDependencies": {
     "autoprefixer": "^6.4.0",
